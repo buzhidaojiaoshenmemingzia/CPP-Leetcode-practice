@@ -1,1 +1,227 @@
+\documentclass{article}
+\usepackage[UTF8]{ctex}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
 
+\lstset{
+    language=C++,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!70},
+    stringstyle=\color{red},
+    frame=single,
+    breaklines=true,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    tabsize=4
+}
+
+\begin{document}
+
+\title{C++ 哈希表学习笔记}
+\author{张毓泽}
+\date{\today}
+\maketitle
+
+\section{哈希表基本概念}
+将关键字映射到数组下标，从而实现高效查找。
+
+\section{哈希函数}
+\subsection{方法1：直接定址法}
+适用于关键字连续且集中的情况，查找时直接调用即可。
+
+\subsection{方法2：除留余数法}
+对关键字取余，映射到数组下标：
+\begin{itemize}
+    \item 建议取\textbf{质数}作为除数，减少冲突
+    \item 示例：
+    \begin{itemize}
+        \item $72 \% 7 = 2$
+        \item $29 \% 7 = 1$
+        \item $31 \% 7 = 3$
+        \item $18 \% 7 = 4$
+    \end{itemize}
+\end{itemize}
+
+\section{冲突解决方法}
+\subsection{1. 线性探测法}
+冲突时依次向后查找空位：
+\begin{itemize}
+    \item 查找规则：遇到 \texttt{DEL} 标记跳过，遇到空位置停止
+    \item 删除操作：用特殊值 \texttt{DEL} 标记，不直接置空
+\end{itemize}
+
+\subsection{2. 平方探测法}
+冲突时按 $+1, -1, +4, -4, +9, -9, \dots$ 顺序探测：
+\begin{itemize}
+    \item 表长要求：$n = 4k + 3$ 且为质数
+\end{itemize}
+
+\subsection{3. 拉链法（链地址法）}
+用多个链表存储冲突元素，遍历对应余数的链表即可完成查找。
+
+\section{C++ 哈希表实现}
+\subsection{unordered\_map}
+\begin{lstlisting}
+#include <iostream>
+#include <unordered_map>
+using namespace std;
+
+int main() {
+    // 1. 定义：key=int, value=int（可自定义）
+    unordered_map<int, int> mp;
+    
+    // 2. 插入
+    mp[5] = 108;
+    mp.insert({3, 50});
+    
+    // 3. 查找（核心）
+    if (mp.find(5) != mp.end()) {
+        cout << "找到: " << mp[5] << endl;
+    } else {
+        cout << "没找到" << endl;
+    }
+    
+    // 4. 删除
+    mp.erase(3);
+    
+    return 0;
+}
+\end{lstlisting}
+
+\subsection{unordered\_map 常用操作}
+\begin{lstlisting}
+unordered_map<int, int> myHashTable;
+
+// 插入
+myHashTable[123] = 0;
+
+// 查找
+auto it = myHashTable.find(123);
+if (it != myHashTable.end()) {
+    // it->first  = key
+    // it->second = value
+}
+
+// 大小/清空
+myHashTable.size();
+myHashTable.clear();
+\end{lstlisting}
+
+\subsection{unordered\_set（仅查重）}
+\begin{lstlisting}
+#include <unordered_set>
+using namespace std;
+
+unordered_set<char> st;
+
+// 插入
+st.insert('a');
+
+// 查找：找到返回1，否则0
+st.count('a');
+
+// 删除
+st.erase('a');
+\end{lstlisting}
+
+\section{哈希表遍历}
+\begin{lstlisting}
+// 范围for遍历
+for (auto& pair : mp) {
+    // pair.first  键
+    // pair.second 值
+}
+\end{lstlisting}
+
+\section{经典例题}
+\subsection{1. 无重复字符的最长子串（查重）}
+用 \texttt{unordered\_set} + 双指针：
+\begin{lstlisting}
+class Solution {
+public:
+    int lengthOfLongestSubstring(string s) {
+        unordered_set<char> letter;
+        int n = s.size();
+        int ans = 0;
+        int left = 0;
+        
+        for (int right = 0; right < n; right++) {
+            while (letter.find(s[right]) != letter.end()) {
+                letter.erase(s[left]);
+                left++;
+            }
+            letter.insert(s[right]);
+            ans = max(ans, right - left + 1);
+        }
+        return ans;
+    }
+};
+\end{lstlisting}
+
+\subsection{2. 单词规律（双射）}
+双向映射：字符↔单词：
+\begin{lstlisting}
+class Solution {
+public:
+    bool wordPattern(string pattern, string s) {
+        unordered_map<char, string> c2w;
+        unordered_map<string, char> w2c;
+        istringstream iss(s);
+        vector<string> words;
+        string word;
+        
+        while (iss >> word) words.push_back(word);
+        if (pattern.size() != words.size()) return false;
+        
+        for (int i = 0; i < pattern.size(); i++) {
+            char c = pattern[i];
+            string w = words[i];
+            
+            if (c2w.count(c) && c2w[c] != w) return false;
+            if (w2c.count(w) && w2c[w] != c) return false;
+            
+            c2w[c] = w;
+            w2c[w] = c;
+        }
+        return true;
+    }
+};
+\end{lstlisting}
+
+\subsection{3. 数组交集 II（计数）}
+用 \texttt{unordered\_map} 统计次数：
+\begin{lstlisting}
+class Solution {
+public:
+    vector<int> intersect(vector<int>& nums1, vector<int>& nums2) {
+        if (nums1.size() > nums2.size())
+            return intersect(nums2, nums1);
+        
+        unordered_map<int, int> cnt;
+        for (int x : nums1) cnt[x]++;
+        
+        vector<int> ans;
+        for (int x : nums2) {
+            if (cnt[x] > 0) {
+                ans.push_back(x);
+                cnt[x]--;
+            }
+        }
+        return ans;
+    }
+};
+\end{lstlisting}
+
+\section{核心要点}
+\begin{enumerate}
+    \item 哈希表 = 关键字 → 下标映射，减少遍历
+    \item \texttt{unordered\_map}：存键值对，适合映射
+    \item \texttt{unordered\_set}：只存键，适合查重
+    \item 冲突：线性探测 / 平方探测 / 拉链法
+    \item 线性探测删除：用 \texttt{DEL} 标记，避免查找中断
+\end{enumerate}
+
+\end{document}
